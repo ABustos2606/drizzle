@@ -1,0 +1,18 @@
+# SPDX-License-Identifier: MIT
+# Drizzle's change to vendored code: no console output from the synth's grain player.
+--- a/beads/dsp/wavetable_granular_player.h
++++ b/beads/dsp/wavetable_granular_player.h
+@@ -53,11 +53,8 @@
+       float amplitude, pan;
+       ComputeGrainAmplitudeAndPan(trigger, p, &amplitude, &pan);
+       
+-#ifdef TEST
+-      if (!new_grain()->done()) {
+-        printf("stealing, duration = %d\n", new_grain()->remaining_samples());
+-      }
+-#endif  // TEST
++      // Drizzle: upstream printed grain stealing here when built with -DTEST;
++      // no console output on the audio thread.
+ 
+       new_grain()->Start(
+           bank,

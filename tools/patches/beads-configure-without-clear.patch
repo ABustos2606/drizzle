@@ -1,0 +1,66 @@
+# SPDX-License-Identifier: MIT
+# Drizzle's change to vendored code: Configure can skip the bulk buffer clear.
+--- a/beads/dsp/processor.h
++++ b/beads/dsp/processor.h
+@@ -70,7 +70,9 @@
+   };
+   
+   void Init(uint8_t* buffers[], uint16_t* reverb_buffer);
+-  void Configure(Media media, bool mono);
++  // Drizzle: with clear false the delay buffer is not wiped (the plugin
++  // clears it a slice at a time first; see third_party/eurorack/README.md).
++  void Configure(Media media, bool mono, bool clear = true);
+   
+   inline Media media() const { return media_; }
+   inline bool mono() const { return mono_; }
+--- a/beads/dsp/processor.cc
++++ b/beads/dsp/processor.cc
+@@ -66,7 +66,7 @@
+   delay_mode_transition_ = -kDelayModeTransitionTime;
+ }
+ 
+-void Processor::Configure(Media media, bool mono) {
++void Processor::Configure(Media media, bool mono, bool clear) {
+   media_ = media;
+   mono_ = mono;
+   
+@@ -74,19 +74,19 @@
+ 
+   switch (media_) {
+     case MEDIA_DIGITAL:
+-      processor_digital_.Reset();
++      processor_digital_.Reset(clear);
+       max_delay = processor_digital_.max_delay_times_ratio();
+       break;
+     case MEDIA_VINTAGE_DIGITAL:
+-      processor_vintage_digital_.Reset();
++      processor_vintage_digital_.Reset(clear);
+       max_delay = processor_vintage_digital_.max_delay_times_ratio();
+       break;
+     case MEDIA_CLEAN_TAPE:
+-      processor_clean_tape_.Reset();
++      processor_clean_tape_.Reset(clear);
+       max_delay = processor_clean_tape_.max_delay_times_ratio();
+       break;
+     case MEDIA_DIRTY_TAPE:
+-      processor_dirty_tape_.Reset();
++      processor_dirty_tape_.Reset(clear);
+       max_delay = processor_dirty_tape_.max_delay_times_ratio();
+       break;
+   }
+--- a/beads/dsp/granular_processor.h
++++ b/beads/dsp/granular_processor.h
+@@ -76,9 +76,10 @@
+     input_limiter_.Init(1.0f / sample_rate, 0.95f);
+   }
+   
+-  inline void Reset() {
+-    mono_delay_line_.Reset();
+-    stereo_delay_line_.Reset();
++  // Drizzle: clear is passed on to the delay lines (see processor.h).
++  inline void Reset(bool clear = true) {
++    mono_delay_line_.Reset(clear);
++    stereo_delay_line_.Reset(clear);
+     granular_player_.Reset();
+     multitap_delay_.Reset();
+   }

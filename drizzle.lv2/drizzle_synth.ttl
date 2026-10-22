@@ -1,0 +1,366 @@
+# SPDX-License-Identifier: MIT
+# Copyright (c) 2026 Alejandro Bustos
+@prefix lv2: <http://lv2plug.in/ns/lv2core#> .
+@prefix doap: <http://usefulinc.com/ns/doap#> .
+@prefix foaf: <http://xmlns.com/foaf/0.1/> .
+@prefix rdfs: <http://www.w3.org/2000/01/rdf-schema#> .
+@prefix rdf: <http://www.w3.org/1999/02/22-rdf-syntax-ns#> .
+@prefix units: <http://lv2plug.in/ns/extensions/units#> .
+
+<https://github.com/ABustos2606/drizzle#synth>
+    a lv2:Plugin, lv2:GeneratorPlugin ;
+    doap:name "Drizzle Synth" ;
+    doap:license <https://spdx.org/licenses/MIT> ;
+    doap:maintainer [ foaf:name "Alejandro Bustos" ; foaf:homepage <https://github.com/ABustos2606> ] ;
+    doap:homepage <https://github.com/ABustos2606/drizzle> ;
+    doap:description "Made from the open-source code of Beads, a eurorack module by Emilie Gillet (MIT license)." ;
+    rdfs:comment "Wavetable synth played as grains, with reverb. Silent in this release: it plays from a later one." ;
+    lv2:minorVersion 0 ;
+    lv2:microVersion 1 ;
+    lv2:optionalFeature lv2:hardRTCapable ;
+    lv2:port
+    [
+        a lv2:OutputPort, lv2:AudioPort ;
+        lv2:index 0 ;
+        lv2:symbol "out_l" ;
+        lv2:name "Out L"
+    ],
+    [
+        a lv2:OutputPort, lv2:AudioPort ;
+        lv2:index 1 ;
+        lv2:symbol "out_r" ;
+        lv2:name "Out R"
+    ],
+    [
+        a lv2:InputPort, lv2:ControlPort ;
+        lv2:index 2 ;
+        lv2:symbol "time" ;
+        lv2:name "Time" ;
+        lv2:minimum 0 ;
+        lv2:maximum 1 ;
+        lv2:default 0.5
+    ],
+    [
+        a lv2:InputPort, lv2:ControlPort ;
+        lv2:index 3 ;
+        lv2:symbol "size" ;
+        lv2:name "Size" ;
+        lv2:minimum 0 ;
+        lv2:maximum 1 ;
+        lv2:default 0.5
+    ],
+    [
+        a lv2:InputPort, lv2:ControlPort ;
+        lv2:index 4 ;
+        lv2:symbol "shape" ;
+        lv2:name "Shape" ;
+        lv2:minimum 0 ;
+        lv2:maximum 1 ;
+        lv2:default 0.5
+    ],
+    [
+        a lv2:InputPort, lv2:ControlPort ;
+        lv2:index 5 ;
+        lv2:symbol "pitch" ;
+        lv2:name "Pitch" ;
+        lv2:minimum -24 ;
+        lv2:maximum 24 ;
+        lv2:default 0 ;
+        lv2:portProperty lv2:integer ;
+        units:unit units:semitone12TET
+    ],
+    [
+        a lv2:InputPort, lv2:ControlPort ;
+        lv2:index 6 ;
+        lv2:symbol "density" ;
+        lv2:name "Density" ;
+        lv2:minimum 0 ;
+        lv2:maximum 1 ;
+        lv2:default 0.7
+    ],
+    [
+        a lv2:InputPort, lv2:ControlPort ;
+        lv2:index 7 ;
+        lv2:symbol "time_mod" ;
+        lv2:name "Time mod" ;
+        lv2:minimum -1 ;
+        lv2:maximum 1 ;
+        lv2:default 0
+    ],
+    [
+        a lv2:InputPort, lv2:ControlPort ;
+        lv2:index 8 ;
+        lv2:symbol "size_mod" ;
+        lv2:name "Size mod" ;
+        lv2:minimum -1 ;
+        lv2:maximum 1 ;
+        lv2:default 0
+    ],
+    [
+        a lv2:InputPort, lv2:ControlPort ;
+        lv2:index 9 ;
+        lv2:symbol "shape_mod" ;
+        lv2:name "Shape mod" ;
+        lv2:minimum -1 ;
+        lv2:maximum 1 ;
+        lv2:default 0
+    ],
+    [
+        a lv2:InputPort, lv2:ControlPort ;
+        lv2:index 10 ;
+        lv2:symbol "pitch_mod" ;
+        lv2:name "Pitch mod" ;
+        lv2:minimum -1 ;
+        lv2:maximum 1 ;
+        lv2:default 0
+    ],
+    [
+        a lv2:InputPort, lv2:ControlPort ;
+        lv2:index 11 ;
+        lv2:symbol "time_uses_cv" ;
+        lv2:name "Time uses CV" ;
+        lv2:minimum 0 ;
+        lv2:maximum 1 ;
+        lv2:default 0 ;
+        lv2:portProperty lv2:toggled
+    ],
+    [
+        a lv2:InputPort, lv2:ControlPort ;
+        lv2:index 12 ;
+        lv2:symbol "size_uses_cv" ;
+        lv2:name "Size uses CV" ;
+        lv2:minimum 0 ;
+        lv2:maximum 1 ;
+        lv2:default 0 ;
+        lv2:portProperty lv2:toggled
+    ],
+    [
+        a lv2:InputPort, lv2:ControlPort ;
+        lv2:index 13 ;
+        lv2:symbol "shape_uses_cv" ;
+        lv2:name "Shape uses CV" ;
+        lv2:minimum 0 ;
+        lv2:maximum 1 ;
+        lv2:default 0 ;
+        lv2:portProperty lv2:toggled
+    ],
+    [
+        a lv2:InputPort, lv2:ControlPort ;
+        lv2:index 14 ;
+        lv2:symbol "pitch_uses_cv" ;
+        lv2:name "Pitch uses CV" ;
+        lv2:minimum 0 ;
+        lv2:maximum 1 ;
+        lv2:default 0 ;
+        lv2:portProperty lv2:toggled
+    ],
+    [
+        a lv2:InputPort, lv2:ControlPort ;
+        lv2:index 15 ;
+        lv2:symbol "wavetable" ;
+        lv2:name "Wavetable" ;
+        lv2:minimum 0 ;
+        lv2:maximum 1 ;
+        lv2:default 0
+    ],
+    [
+        a lv2:InputPort, lv2:ControlPort ;
+        lv2:index 16 ;
+        lv2:symbol "osc_grains" ;
+        lv2:name "Osc/grains" ;
+        lv2:minimum 0 ;
+        lv2:maximum 1 ;
+        lv2:default 0.5
+    ],
+    [
+        a lv2:InputPort, lv2:ControlPort ;
+        lv2:index 17 ;
+        lv2:symbol "reverb" ;
+        lv2:name "Reverb" ;
+        lv2:minimum 0 ;
+        lv2:maximum 1 ;
+        lv2:default 0
+    ],
+    [
+        a lv2:InputPort, lv2:ControlPort ;
+        lv2:index 18 ;
+        lv2:symbol "freeze" ;
+        lv2:name "Freeze" ;
+        lv2:minimum 0 ;
+        lv2:maximum 1 ;
+        lv2:default 0 ;
+        lv2:portProperty lv2:toggled
+    ],
+    [
+        a lv2:InputPort, lv2:ControlPort ;
+        lv2:index 19 ;
+        lv2:symbol "seed" ;
+        lv2:name "Seed" ;
+        lv2:minimum 0 ;
+        lv2:maximum 1 ;
+        lv2:default 0 ;
+        lv2:portProperty lv2:toggled
+    ],
+    [
+        a lv2:InputPort, lv2:ControlPort ;
+        lv2:index 20 ;
+        lv2:symbol "seed_lock" ;
+        lv2:name "Seed lock" ;
+        lv2:minimum 0 ;
+        lv2:maximum 1 ;
+        lv2:default 1 ;
+        lv2:portProperty lv2:toggled
+    ],
+    [
+        a lv2:InputPort, lv2:ControlPort ;
+        lv2:index 21 ;
+        lv2:symbol "quality" ;
+        lv2:name "Quality" ;
+        lv2:minimum 0 ;
+        lv2:maximum 3 ;
+        lv2:default 3 ;
+        lv2:portProperty lv2:integer, lv2:enumeration ;
+        lv2:scalePoint
+            [ rdfs:label "Dirty tape" ; rdf:value 0 ],
+            [ rdfs:label "Clean tape" ; rdf:value 1 ],
+            [ rdfs:label "Vintage digital" ; rdf:value 2 ],
+            [ rdfs:label "Digital" ; rdf:value 3 ]
+    ],
+    [
+        a lv2:InputPort, lv2:ControlPort ;
+        lv2:index 22 ;
+        lv2:symbol "assign_to" ;
+        lv2:name "CV assign to" ;
+        lv2:minimum 0 ;
+        lv2:maximum 3 ;
+        lv2:default 0 ;
+        lv2:portProperty lv2:integer, lv2:enumeration ;
+        lv2:scalePoint
+            [ rdfs:label "Wavetable" ; rdf:value 0 ],
+            [ rdfs:label "Osc/grains" ; rdf:value 1 ],
+            [ rdfs:label "Reverb" ; rdf:value 2 ],
+            [ rdfs:label "All" ; rdf:value 3 ]
+    ],
+    [
+        a lv2:InputPort, lv2:ControlPort ;
+        lv2:index 23 ;
+        lv2:symbol "gate_mode" ;
+        lv2:name "Gate out" ;
+        lv2:minimum 0 ;
+        lv2:maximum 1 ;
+        lv2:default 0 ;
+        lv2:portProperty lv2:integer, lv2:enumeration ;
+        lv2:scalePoint
+            [ rdfs:label "Trigger" ; rdf:value 0 ],
+            [ rdfs:label "Gate" ; rdf:value 1 ]
+    ],
+    [
+        a lv2:InputPort, lv2:ControlPort ;
+        lv2:index 24 ;
+        lv2:symbol "output" ;
+        lv2:name "Output" ;
+        lv2:minimum -24 ;
+        lv2:maximum 12 ;
+        lv2:default 0 ;
+        units:unit units:db
+    ],
+    [
+        a lv2:InputPort, lv2:CVPort ;
+        lv2:index 25 ;
+        lv2:symbol "time_cv" ;
+        lv2:name "Time CV" ;
+        lv2:minimum -1 ;
+        lv2:maximum 1 ;
+        lv2:default 0
+    ],
+    [
+        a lv2:InputPort, lv2:CVPort ;
+        lv2:index 26 ;
+        lv2:symbol "size_cv" ;
+        lv2:name "Size CV" ;
+        lv2:minimum -1 ;
+        lv2:maximum 1 ;
+        lv2:default 0
+    ],
+    [
+        a lv2:InputPort, lv2:CVPort ;
+        lv2:index 27 ;
+        lv2:symbol "shape_cv" ;
+        lv2:name "Shape CV" ;
+        lv2:minimum -1 ;
+        lv2:maximum 1 ;
+        lv2:default 0
+    ],
+    [
+        a lv2:InputPort, lv2:CVPort ;
+        lv2:index 28 ;
+        lv2:symbol "pitch_cv" ;
+        lv2:name "Pitch CV" ;
+        lv2:minimum -1 ;
+        lv2:maximum 1 ;
+        lv2:default 0
+    ],
+    [
+        a lv2:InputPort, lv2:CVPort ;
+        lv2:index 29 ;
+        lv2:symbol "density_cv" ;
+        lv2:name "Density CV" ;
+        lv2:minimum -1 ;
+        lv2:maximum 1 ;
+        lv2:default 0
+    ],
+    [
+        a lv2:InputPort, lv2:CVPort ;
+        lv2:index 30 ;
+        lv2:symbol "assign_cv" ;
+        lv2:name "Assign CV" ;
+        lv2:minimum -1 ;
+        lv2:maximum 1 ;
+        lv2:default 0
+    ],
+    [
+        a lv2:InputPort, lv2:CVPort ;
+        lv2:index 31 ;
+        lv2:symbol "freeze_gate" ;
+        lv2:name "Freeze gate" ;
+        lv2:minimum -1 ;
+        lv2:maximum 1 ;
+        lv2:default 0
+    ],
+    [
+        a lv2:InputPort, lv2:CVPort ;
+        lv2:index 32 ;
+        lv2:symbol "seed_gate" ;
+        lv2:name "Seed gate" ;
+        lv2:minimum -1 ;
+        lv2:maximum 1 ;
+        lv2:default 0
+    ],
+    [
+        a lv2:OutputPort, lv2:CVPort ;
+        lv2:index 33 ;
+        lv2:symbol "grain_out" ;
+        lv2:name "Grain out" ;
+        lv2:minimum -1 ;
+        lv2:maximum 1
+    ],
+    [
+        a lv2:InputPort, lv2:ControlPort ;
+        lv2:index 34 ;
+        lv2:symbol "seed_uses_gate" ;
+        lv2:name "Seed uses gate" ;
+        lv2:minimum 0 ;
+        lv2:maximum 1 ;
+        lv2:default 0 ;
+        lv2:portProperty lv2:toggled
+    ],
+    [
+        a lv2:OutputPort, lv2:ControlPort ;
+        lv2:index 35 ;
+        lv2:symbol "latency" ;
+        lv2:name "Latency" ;
+        lv2:minimum 0 ;
+        lv2:maximum 8192 ;
+        lv2:portProperty lv2:reportsLatency, lv2:integer ;
+        lv2:designation lv2:latency
+    ] .

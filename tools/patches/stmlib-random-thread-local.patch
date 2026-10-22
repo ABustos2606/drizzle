@@ -1,0 +1,26 @@
+# SPDX-License-Identifier: MIT
+# Drizzle's change to vendored code: one Random state per thread.
+--- a/stmlib/utils/random.h
++++ b/stmlib/utils/random.h
+@@ -55,7 +55,9 @@
+   }
+ 
+  private:
+-  static uint32_t rng_state_;
++  // Drizzle: thread_local, so plugin instances running on different host
++  // threads do not race on one shared state (see third_party/eurorack/README.md).
++  static thread_local uint32_t rng_state_;
+ 
+   DISALLOW_COPY_AND_ASSIGN(Random);
+ };
+--- a/stmlib/utils/random.cc
++++ b/stmlib/utils/random.cc
+@@ -31,6 +31,7 @@
+ namespace stmlib {
+ 
+ /* static */
+-uint32_t Random::rng_state_ = 0x21;
++// Drizzle: thread_local, see random.h.
++thread_local uint32_t Random::rng_state_ = 0x21;
+ 
+ }  // namespace stmlib
