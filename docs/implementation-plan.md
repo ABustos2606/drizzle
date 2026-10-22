@@ -6,6 +6,8 @@
 
 **Updated again 21 October 2026** with milestone 2: Mono, Gain, Assign, Gate out and Drizzle Synth as built (sections 3, 4.3 to 4.7), a fourth vendored change (7), and the tests that check them (6.1). Record: [milestone 2](milestone-2-validation.md).
 
+**Updated 21 October 2026, milestone 3:** Peepo's side (section 9) as built, pinned at `v0.2.0`. Record: [milestone 3](milestone-3-validation.md).
+
 This plan says how to build Drizzle: code layout, ports, the glue around Beads' processor, real-time rules, tests and milestones. Values that only listening can settle are given a starting value and marked **tune**.
 
 ## 1. What Ingen's source changes
@@ -204,7 +206,7 @@ Each has an end check. "Done" means the offline tests pass on x86-64 and arm64, 
 - **Milestone 0, scaffolding.** `tools/vendor.sh`, vendored files, Makefile, both descriptors, both `.ttl` files with the full port list, `ports.hpp`, `ttl_check`. Drizzle runs the processor at default settings. **Done when** `make`, `make install DESTDIR=...` and `lv2lint` are clean and both plugins load in jalv and in Ingen under WSL. Tag `v0.0.1`. **Done 21 October 2026.**
 - **Milestone 1, the processor.** Every control and CV input of Drizzle, the qualities, Freeze, Seed and Seed lock, `match_beads`, `slicing`, `rt_timing`. Pi CPU and xrun check. Tag `v0.1.0`; Peepo adds its overlay entry and pinned build. **Done offline 21 October 2026; the Pi check is to do.**
 - **Milestone 2, the rest.** Drizzle Synth, Mono, Gain, the gate output, the Assign input. Tag `v0.2.0`. **Done offline 21 October 2026; the Pi check (with milestone 1's) is to do.**
-- **Milestone 3, listening.** Guitar on the Pi; default values tuned (quality, density, gain). `v0.2.x` tags of tuning.
+- **Milestone 3, Peepo and listening.** Section 9 in Peepo, pinned at `v0.2.0` (`8047478`). Guitar on the Pi; default values tuned (quality, density, gain, trigger length). `v0.2.x` tags of tuning. **Peepo side done on the PC 21 October 2026; the Pi checks and listening are to do.** Record: [milestone 3](milestone-3-validation.md).
 
 ## 9. Peepo-side work
 
@@ -212,8 +214,8 @@ In Peepo's repository, not here:
 
 1. Build step in `tools/ingen-spike/14-more-plugins.sh`: `third drizzle https://github.com/ABustos2606/drizzle.git <commit> "make" make -j"$JOBS" OPT=... LV2DIR="$LV2DIR" install`.
 2. URIs in `config/catalogue/inventory.txt` and `tools/catalogue-inventory.py`.
-3. Overlay entry: names "Drizzle" and "Drizzle Synth", categories Texture and Sound source, descriptions that say what it does, `"output": "output"`, `"bypass": "port"` for Drizzle (its `enabled` port), groups (**Grain**: Time, Size, Shape, Pitch; **Density and mix**: Density, Feedback, Dry/wet, Reverb; **Modulation**: the four mod knobs; **CV use**: the four switches; **Play**: Freeze, Seed, Seed lock, Seed uses gate, Quality; **More**).
-4. `docs/37-module-names.md` and `docs/33-module-list.md` regenerated.
+3. Overlay entry: names "Drizzle" and "Drizzle Synth", categories Texture and Sound source, descriptions that say what it does, `"output": "output"`, `"bypass": "port"` for Drizzle (its `enabled` port), groups. As built: **Grain** (Time, Size, Shape, Pitch), **Density and mix** (Density, Feedback, Dry/wet, Reverb), **Play** (Freeze, Seed, Seed lock, Quality), **Modulation** (the four mod knobs), **CV use** (the four switches and Seed uses gate), **Input and output** (Auto gain, Input gain, Mono, Output), **CV assign and out** (CV assign to, Gate out); Drizzle Synth the same with **Voice and mix** (Density, Wavetable, Osc/grains, Reverb) and Output in its last page. Done 21 October 2026, pinned at `v0.2.0`.
+4. `docs/37-module-names.md` already names Drizzle; `docs/33-module-list.md` is regenerated after the Pi catalogue is exported (to do).
 
 ## 10. Risks
 
