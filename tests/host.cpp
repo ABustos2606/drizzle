@@ -111,8 +111,10 @@ std::vector<Stereo> Instance::render(uint64_t frames, const Input& input)
 {
     const uint32_t out_l = synth ? static_cast<uint32_t>(drizzle::SynthPort::out_l) : static_cast<uint32_t>(drizzle::Port::out_l);
     const uint32_t out_r = synth ? static_cast<uint32_t>(drizzle::SynthPort::out_r) : static_cast<uint32_t>(drizzle::Port::out_r);
+    const uint32_t grain = synth ? static_cast<uint32_t>(drizzle::SynthPort::grain_out) : static_cast<uint32_t>(drizzle::Port::grain_out);
     std::vector<Stereo> output;
     output.reserve(frames);
+    if (record_grain) { grain_out.reserve(grain_out.size() + frames); }
     while (output.size() < frames) {
         if (input) {
             for (uint32_t i = 0; i < block; ++i) { input(*this, i, frame + i); }
@@ -120,6 +122,7 @@ std::vector<Stereo> Instance::render(uint64_t frames, const Input& input)
         period();
         for (uint32_t i = 0; i < block && output.size() < frames; ++i) {
             output.push_back({buffers_[out_l][i], buffers_[out_r][i]});
+            if (record_grain) { grain_out.push_back(buffers_[grain][i]); }
         }
         frame += block;
     }

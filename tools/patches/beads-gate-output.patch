@@ -1,0 +1,83 @@
+# SPDX-License-Identifier: MIT
+# Drizzle's change to vendored code: the processor and the synth hand out their grain gate.
+--- a/beads/dsp/processor.h
++++ b/beads/dsp/processor.h
+@@ -163,7 +163,11 @@
+       const MixParameters& mix_parameters,
+       const FloatFrame* in,
+       FloatFrame* out,
+-      size_t size);
++      size_t size,
++      // Drizzle: when not NULL, receives the grain gate of each frame (what
++      // the hardware's gate output mode sends to the right output), so the
++      // plugin can put it on a CV output and keep the audio in stereo.
++      bool* gate_output = NULL);
+   
+  private:
+   GranularProcessor<
+--- a/beads/dsp/processor.cc
++++ b/beads/dsp/processor.cc
+@@ -108,7 +108,8 @@
+     const MixParameters& mix_parameters,
+     const FloatFrame* in,
+     FloatFrame* out,
+-    size_t size) {
++    size_t size,
++    bool* gate_output) {
+   const float delay_mode = delay_mode_transition_ > 0.0f;
+   const float threshold = delay_mode ? 0.98f : 0.99f;
+   const float direction = parameters.size.base > threshold ? 1.0f : -1.0f;
+@@ -251,6 +252,11 @@
+       out[i].r = gate_out[i] ? -0.8f : 0.0f;
+     }
+   }
++  
++  // Drizzle: the grain gate, for the plugin's CV output.
++  if (gate_output) {
++    copy(&gate_out[0], &gate_out[size], gate_output);
++  }
+ }
+ 
+ }  // namespace beads
+\ No newline at end of file
+--- a/beads/dsp/synth.h
++++ b/beads/dsp/synth.h
+@@ -66,7 +66,10 @@
+       const Parameters& parameters,
+       const Processor::MixParameters& mix_parameters,
+       FloatFrame* out,
+-      size_t size);
++      size_t size,
++      // Drizzle: when not NULL, receives the grain gate of each frame (see
++      // Processor::Process).
++      bool* gate_output = NULL);
+   
+  private:
+   TriggerGenerator trigger_generator_;
+--- a/beads/dsp/synth.cc
++++ b/beads/dsp/synth.cc
+@@ -60,7 +60,8 @@
+     const Parameters& parameters,
+     const Processor::MixParameters& mix_parameters,
+     FloatFrame* out,
+-    size_t size) {
++    size_t size,
++    bool* gate_output) {
+   
+   Parameters p = parameters;
+   p.pitch.base = p.pitch.base + (p.pitch.has_cv ? p.pitch.cv : 0.0f);
+@@ -139,6 +140,13 @@
+       out[i].r = triggers[i].gate ? -0.8f : 0.0f;
+     }
+   }
++  
++  // Drizzle: the grain gate, for the plugin's CV output.
++  if (gate_output) {
++    for (size_t i = 0; i < size; ++i) {
++      gate_output[i] = triggers[i].gate;
++    }
++  }
+ }
+ 
+ }  // namespace beads
+\ No newline at end of file

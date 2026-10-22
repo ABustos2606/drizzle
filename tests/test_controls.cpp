@@ -73,6 +73,7 @@ std::vector<std::pair<const char*, float>> fields(const BlockControls& b)
         {"mix.dry_wet", b.mix.dry_wet}, {"mix.reverb_amount", b.mix.reverb_amount},
         {"mix.output_gate", b.mix.output_gate}, {"seed_button", static_cast<float>(b.seed_button)},
         {"freeze_button", b.freeze_button}, {"seed_uses_gate", b.seed_uses_gate},
+        {"grain_trigger", b.grain_trigger},
     };
 }
 
@@ -106,7 +107,9 @@ int main()
         // Defaults: Seed locked (the hardware starts locked), nothing else on.
         Rig rig;
         const auto d = rig.read();
-        require(d.seed_button == beads::SEED_BUTTON_STATE_LOCKED && !d.freeze_button && !d.seed_uses_gate, "defaults");
+        require(d.seed_button == beads::SEED_BUTTON_STATE_LOCKED && !d.freeze_button && !d.seed_uses_gate &&
+                    d.grain_trigger && !d.mix.output_gate,
+                "defaults");
         require(d.parameters.time.base == 0.5f && d.density.base == 0.7f && d.mix.dry_wet == 0.5f * 1.005f, "default values");
 
         only("Time", [](Rig& r) { r.c(Port::time) = 0.8f; }, "time.base", 0.8f);
@@ -137,8 +140,9 @@ int main()
         only("Shape CV", [](Rig& r) { r.cv(Port::shape_cv, 3.0f); }, "shape.cv", 0.5f * 1.6f);
         only("Pitch CV", [](Rig& r) { r.cv(Port::pitch_cv, 0.2f); }, "pitch.cv", 12.0f);
         only("Density CV", [](Rig& r) { r.cv(Port::density_cv, -0.3f); }, "density.cv", -0.3f);
-        // Mix pots: Process scales by 1.005 and clamps.
-        only("Feedback", [](Rig& r) { r.c(Port::feedback) = 0.5f; }, "mix.feedback", 0.5f * 1.005f);
+        // Mix pots: Process scales by 1.005, adds the Assign CV less 0.002 to
+        // its destination (Feedback by default) and clamps.
+        only("Feedback", [](Rig& r) { r.c(Port::feedback) = 0.5f; }, "mix.feedback", 0.5f * 1.005f - 0.002f);
         only("Dry/wet", [](Rig& r) { r.c(Port::dry_wet) = 1; }, "mix.dry_wet", 1.0f);
         only("Reverb", [](Rig& r) { r.c(Port::reverb) = 0.2f; }, "mix.reverb_amount", 0.2f * 1.005f);
         only("Seed lock off", [](Rig& r) { r.c(Port::seed_lock) = 0; }, "seed_button", beads::SEED_BUTTON_STATE_OFF);
@@ -151,16 +155,41 @@ int main()
         }
         only("Freeze", [](Rig& r) { r.c(Port::freeze) = 1; }, "freeze_button", 1);
         only("Seed uses gate", [](Rig& r) { r.c(Port::seed_uses_gate) = 1; }, "seed_uses_gate", 1);
-        // Ports that do nothing until milestone 2.
-        for (Port p : {Port::mono, Port::gain, Port::auto_gain, Port::assign_to, Port::gate_mode}) {
+        only("Gate out: Gate", [](Rig& r) { r.c(Port::gate_mode) = 1; }, "grain_trigger", 0);
+        // The glue reads these (gain.cpp, drizzle.cpp); the processor's
+        // parameters don't change.
+        for (Port p : {Port::mono, Port::gain, Port::auto_gain}) {
             Rig a, b;
-            b.c(p) = 1;
-            require(fields(a.read()) == fields(b.read()), "a milestone 2 port changes nothing yet");
+            b.c(p) = p == Port::auto_gain ? 0.0f : 1.0f;
+            require(fields(a.read()) == fields(b.read()), "Mono and gain leave the parameters alone");
+        }
+        // Assign: the CV goes through a 0.1 one-pole per block, 1.0 = 5 V = 1.
+        only("Assign CV to Feedback", [](Rig& r) { r.cv(Port::assign_cv, 1); }, "mix.feedback", 0.1f - 0.002f);
+        only("Assign CV to Dry/wet", [](Rig& r) { r.c(Port::assign_to) = 1; r.cv(Port::assign_cv, -1); },
+             "mix.dry_wet", 0.5f * 1.005f - 0.1f - 0.002f);
+        only("Assign CV to Reverb", [](Rig& r) { r.c(Port::reverb) = 0.5f; r.c(Port::assign_to) = 2; r.cv(Port::assign_cv, 1); },
+             "mix.reverb_amount", 0.5f * 1.005f + 0.1f - 0.002f);
+        {
+            // All: settings.cc's hidden amounts, 255, 0 and 128 of 256.
+            Rig a, b;
+            for (Rig* r : {&a, &b}) {
+                r->c(Port::feedback) = r->c(Port::reverb) = 0.5f;
+                r->c(Port::assign_to) = 3;
+            }
+            b.cv(Port::assign_cv, 1);
+            const auto x = a.read(), y = b.read();
+            require(std::fabs(y.mix.feedback - x.mix.feedback - 0.1f * 255.0f / 256.0f) < 1e-6f, "Assign all: Feedback");
+            require(y.mix.dry_wet == x.mix.dry_wet, "Assign all: Dry/wet amount 0");
+            require(std::fabs(y.mix.reverb_amount - x.mix.reverb_amount - 0.1f * 0.5f) < 1e-6f, "Assign all: Reverb");
+            ++cases;
         }
         {
-            Rig a, b;
-            b.cv(Port::assign_cv, 1);
-            require(fields(a.read()) == fields(b.read()), "the Assign CV changes nothing yet");
+            Rig r;
+            r.c(Port::dry_wet) = 1;
+            r.c(Port::assign_to) = 1;
+            r.cv(Port::assign_cv, 1);
+            for (int i = 0; i < 100; ++i) { r.read(); }
+            require(r.read().mix.dry_wet == 1.0f, "Assign clamps the mix at 1");
         }
 
         // Pots glide: one-pole 0.05 per block after the first read, which
@@ -190,7 +219,7 @@ int main()
         }
         broken.c(Port::time) = std::nanf("");
         require(fields(Rig().read()) == fields(broken.read()), "unconnected controls read their defaults");
-        std::printf("PASS controls: %d cases; dead zone, glide, hysteresis, CV filters, fallbacks\n", cases);
+        std::printf("PASS controls: %d cases; dead zone, glide, hysteresis, CV filters, Assign, fallbacks\n", cases);
     } catch (const std::exception& e) {
         std::cerr << "FAIL controls: " << e.what() << '\n';
         return 1;

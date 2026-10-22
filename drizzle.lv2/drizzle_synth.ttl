@@ -14,9 +14,9 @@
     doap:maintainer [ foaf:name "Alejandro Bustos" ; foaf:homepage <https://github.com/ABustos2606> ] ;
     doap:homepage <https://github.com/ABustos2606/drizzle> ;
     doap:description "Made from the open-source code of Beads, a eurorack module by Emilie Gillet (MIT license)." ;
-    rdfs:comment "Wavetable synth played as grains, with reverb. Silent in this release: it plays from a later one." ;
-    lv2:minorVersion 0 ;
-    lv2:microVersion 1 ;
+    rdfs:comment "Wavetable synth played as grains, with reverb. It needs no input: Wavetable picks the sound, Osc/grains balances a steady oscillator against grains of it, Time, Size, Shape, Pitch and Density shape the grains, and Freeze holds the voice. Grain out sends a trigger or gate on each grain." ;
+    lv2:minorVersion 2 ;
+    lv2:microVersion 0 ;
     lv2:optionalFeature lv2:hardRTCapable ;
     lv2:port
     [

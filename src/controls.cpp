@@ -52,6 +52,10 @@ constexpr std::array<CvSource, Controls::cv_count> kCvs{{
     {Port::shape_cv, 0.5f, 1.6f},
 }};
 
+// settings.cc: assignable_cv_amount, the amounts of 256 for the mix pots
+// (Feedback, Dry/wet, Reverb) when the Assign CV goes to all three.
+constexpr float kAssignAllAmounts[3] = {255, 0, 128};
+
 float value(const PortArray& ports, Port port, float fallback, float minimum, float maximum)
 {
     const float* data = ports[static_cast<uint32_t>(port)];
@@ -149,15 +153,23 @@ void Controls::read(const PortArray& ports, uint32_t frame, BlockControls* out)
     out->density.cv = cv(density_cv);
 
     // Ui::ProcessPot and PotController in its tracking state: the mix pots
-    // pass through. The assignable CV (milestone 2) adds nothing yet.
+    // pass through. beads.cc: Process adds the assignable CV to the chosen
+    // one, or to all three with the hardware's hidden amounts. Those amounts
+    // are set by holding Assign and turning a mix pot; Drizzle has no ports
+    // for them and uses settings.cc's defaults.
+    const auto destination = static_cast<uint32_t>(std::lround(value(ports, Port::assign_to, 0, 0, 3)));
     float mix[3];
     for (uint32_t i = 0; i < 3; ++i) {
-        mix[i] = pot(static_cast<Pot>(feedback + i)) * 1.005f;
+        const float base = pot(static_cast<Pot>(feedback + i)) * 1.005f;
+        const float amount = destination == 3 ? kAssignAllAmounts[i] / 256.0f : (destination == i ? 1.0f : 0.0f);
+        mix[i] = base + (cv(assign_cv) - 0.002f) * amount;
         constrain(mix[i], 0.0f, 1.0f);
     }
     out->mix.feedback = mix[0];
     out->mix.dry_wet = mix[1];
     out->mix.reverb_amount = mix[2];
+    // The hardware's gate output mode replaces the right output with the
+    // grain gate; Drizzle has a Grain out CV port instead, always on.
     out->mix.output_gate = false;
 
     // Ui: Seed + Freeze locks the Seed button (and the hardware starts
@@ -168,6 +180,7 @@ void Controls::read(const PortArray& ports, uint32_t frame, BlockControls* out)
                                                                   : beads::SEED_BUTTON_STATE_OFF;
     out->freeze_button = toggle(ports, Port::freeze, false);
     out->seed_uses_gate = toggle(ports, Port::seed_uses_gate, false);
+    out->grain_trigger = std::lround(value(ports, Port::gate_mode, 0, 0, 1)) == 0;
 }
 
 } // namespace drizzle

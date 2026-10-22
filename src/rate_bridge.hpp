@@ -39,6 +39,8 @@ public:
             exact_latency_ = down_.delay() +
                 static_cast<double>(up_.delay() + block_.size) * host_rate / processor_rate;
             latency_ = static_cast<uint32_t>(std::lround(exact_latency_));
+            gate_latency_ = static_cast<uint32_t>(
+                std::lround(static_cast<double>(block_.size) * host_rate / processor_rate));
         } catch (const std::bad_alloc&) {
             return false;
         }
@@ -51,18 +53,23 @@ public:
         down_.reset();
         up_.reset();
         block_.reset();
+        gate_ = false;
     }
 
     uint32_t rate() const { return rate_; }
     uint32_t block_size() const { return block_.size; }
     uint32_t latency() const { return latency_; }
     double exact_latency() const { return exact_latency_; }
+    // How late frame()'s gate is, in host frames: one block.
+    uint32_t gate_latency() const { return gate_latency_; }
 
     // One host frame: `in` and `out` are {left, right}; `freeze` and `seed`
     // are the gate inputs at this frame, staged with every processor frame
     // it produces. process(BlockBuffer&) runs the processor on a full block.
+    // `gate` is the grain gate of the last processor frame played out (not
+    // resampled: gate_latency() late, not latency()).
     template <typename Process>
-    void frame(const float* in, bool freeze, bool seed, float* out, Process&& process) noexcept
+    void frame(const float* in, bool freeze, bool seed, float* out, bool* gate, Process&& process) noexcept
     {
         down_.push(in);
         while (down_.ready()) {
@@ -73,6 +80,7 @@ public:
             block_.freeze[p] = freeze;
             block_.seed[p] = seed;
             const float processor_out[2] = {block_.out[p].l, block_.out[p].r};
+            gate_ = block_.gate[p];
             up_.push(processor_out);
             if (++block_.position == block_.size) {
                 process(block_);
@@ -83,6 +91,7 @@ public:
         // its own time, which the frames so far have produced.
         out[0] = out[1] = 0.0f;
         if (up_.ready()) { up_.next(out); }
+        *gate = gate_;
     }
 
 private:
@@ -91,7 +100,9 @@ private:
     BlockBuffer block_{};
     uint32_t rate_ = 0;
     uint32_t latency_ = 0;
+    uint32_t gate_latency_ = 0;
     double exact_latency_ = 0;
+    bool gate_ = false;
 };
 
 } // namespace drizzle

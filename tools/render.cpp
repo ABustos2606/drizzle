@@ -48,6 +48,19 @@ uint32_t port_index(const std::string& symbol)
     throw std::runtime_error("unknown port symbol: " + symbol);
 }
 
+// Drizzle Synth's index for a symbol: its own names for Feedback and
+// Dry/wet, the others as Drizzle's.
+uint32_t synth_port_index(const std::string& symbol)
+{
+    const uint32_t port = symbol == "wavetable" ? static_cast<uint32_t>(Port::feedback)
+                        : symbol == "osc_grains" ? static_cast<uint32_t>(Port::dry_wet)
+                                                 : port_index(symbol);
+    for (uint32_t i = 0; i < drizzle::kSynthPortCount; ++i) {
+        if (static_cast<uint32_t>(drizzle::kSynthToPort[i]) == port) { return i; }
+    }
+    throw std::runtime_error("Drizzle Synth has no port " + symbol);
+}
+
 template <typename T> T read_le(std::istream& in)
 {
     T value{};
@@ -121,14 +134,15 @@ int main(int argc, char** argv)
 {
     try {
         if (argc < 3) {
-            std::cerr << "usage: render drizzle.so out.wav [--rate R] [--seconds S] [--in file.wav]"
+            std::cerr << "usage: render drizzle.so out.wav [--synth] [--rate R] [--seconds S] [--in file.wav]"
                          " [--seed-every S] [symbol=value ...]\n";
             return 1;
         }
         uint32_t rate = 48000;
         double seconds = 8, seed_every = 0;
+        bool synth = false;
         std::string input;
-        std::vector<std::pair<uint32_t, float>> settings;
+        std::vector<std::pair<std::string, float>> settings;
         for (int i = 3; i < argc; ++i) {
             const std::string arg = argv[i];
             auto value = [&]() -> std::string {
@@ -139,23 +153,33 @@ int main(int argc, char** argv)
             else if (arg == "--seconds") { seconds = std::stod(value()); }
             else if (arg == "--in") { input = value(); }
             else if (arg == "--seed-every") { seed_every = std::stod(value()); }
+            else if (arg == "--synth") { synth = true; }
             else {
                 const auto eq = arg.find('=');
                 if (eq == std::string::npos) { throw std::runtime_error("unknown argument " + arg); }
-                settings.emplace_back(port_index(arg.substr(0, eq)), std::stof(arg.substr(eq + 1)));
+                settings.emplace_back(arg.substr(0, eq), std::stof(arg.substr(eq + 1)));
             }
         }
         const std::vector<test::Stereo> audio = input.empty() ? std::vector<test::Stereo>{} : read_wav(input, rate);
 
         test::Library library(argv[1]);
-        test::Instance instance(library.descriptor, rate, 128);
+        test::Instance instance(synth ? library.synth : library.descriptor, rate, 128);
+        // Indices of the instance's plugin; Port is only the type the host's
+        // accessors take.
         std::vector<std::pair<uint32_t, float>> held_cvs;
-        for (const auto& [index, value] : settings) {
-            if (drizzle::is_signal(index)) { held_cvs.emplace_back(index, value); }
+        for (const auto& [symbol, value] : settings) {
+            const uint32_t index = synth ? synth_port_index(symbol) : port_index(symbol);
+            if (synth ? drizzle::is_synth_signal(index) : drizzle::is_signal(index)) { held_cvs.emplace_back(index, value); }
             else { instance.control(static_cast<Port>(index)) = value; }
         }
+        const uint32_t seed_gate = synth ? static_cast<uint32_t>(drizzle::SynthPort::seed_gate)
+                                         : static_cast<uint32_t>(Port::seed_gate);
+        const uint32_t latency = synth ? static_cast<uint32_t>(drizzle::SynthPort::latency)
+                                       : static_cast<uint32_t>(Port::latency);
         const auto out = instance.render(static_cast<uint64_t>(seconds * rate), [&](test::Instance& in, uint32_t i, uint64_t frame) {
-            if (input.empty()) {
+            if (synth) {
+                // No audio input.
+            } else if (input.empty()) {
                 const double phase = std::fmod(frame * 261.626 / rate, 1.0);
                 in.signal(Port::in_l, i) = static_cast<float>(phase - 0.5);
                 in.signal(Port::in_r, i) = static_cast<float>(std::sin(phase * 2.0 * M_PI) * 0.5);
@@ -165,14 +189,14 @@ int main(int argc, char** argv)
                 in.signal(Port::in_r, i) = x.r;
             }
             const double t = static_cast<double>(frame) / rate;
-            in.signal(Port::seed_gate, i) = seed_every > 0 && std::fmod(t, seed_every) < 0.01 ? 1.0f : 0.0f;
+            in.signal(static_cast<Port>(seed_gate), i) = seed_every > 0 && std::fmod(t, seed_every) < 0.01 ? 1.0f : 0.0f;
             for (const auto& [index, value] : held_cvs) { in.signal(static_cast<Port>(index), i) = value; }
         });
         write_wav(argv[2], out, rate);
         float peak = 0;
         for (const auto& f : out) { peak = std::max({peak, std::fabs(f.l), std::fabs(f.r)}); }
         std::printf("wrote %s: %.2f s at %u Hz, peak %.3f, latency %.0f frames\n", argv[2], seconds, rate,
-                    peak, instance.control(Port::latency));
+                    peak, instance.control(static_cast<Port>(latency)));
     } catch (const std::exception& e) {
         std::cerr << "render: " << e.what() << '\n';
         return 1;

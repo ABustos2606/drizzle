@@ -108,7 +108,8 @@ void Processor::Process(
     const MixParameters& mix_parameters,
     const FloatFrame* in,
     FloatFrame* out,
-    size_t size) {
+    size_t size,
+    bool* gate_output) {
   const float delay_mode = delay_mode_transition_ > 0.0f;
   const float threshold = delay_mode ? 0.98f : 0.99f;
   const float direction = parameters.size.base > threshold ? 1.0f : -1.0f;
@@ -250,6 +251,11 @@ void Processor::Process(
       out[i].l = (out[i].l + out[i].r) * 0.5f;
       out[i].r = gate_out[i] ? -0.8f : 0.0f;
     }
+  }
+  
+  // Drizzle: the grain gate, for the plugin's CV output.
+  if (gate_output) {
+    copy(&gate_out[0], &gate_out[size], gate_output);
   }
 }
 

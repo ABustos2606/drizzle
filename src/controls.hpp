@@ -22,6 +22,8 @@ struct BlockControls {
     beads::SeedButtonState seed_button;
     bool freeze_button;
     bool seed_uses_gate;
+    // Gate out: a pulse per grain (Trigger) or the grain gate itself (Gate).
+    bool grain_trigger;
 };
 
 // Turns control ports and CV inputs into the processor's parameters once per

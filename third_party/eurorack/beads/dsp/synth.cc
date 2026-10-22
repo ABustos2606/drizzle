@@ -60,7 +60,8 @@ void Synth::Render(
     const Parameters& parameters,
     const Processor::MixParameters& mix_parameters,
     FloatFrame* out,
-    size_t size) {
+    size_t size,
+    bool* gate_output) {
   
   Parameters p = parameters;
   p.pitch.base = p.pitch.base + (p.pitch.has_cv ? p.pitch.cv : 0.0f);
@@ -137,6 +138,13 @@ void Synth::Render(
     for (size_t i = 0; i < size; ++i) {
       out[i].l = (out[i].l + out[i].r) * 0.5f;
       out[i].r = triggers[i].gate ? -0.8f : 0.0f;
+    }
+  }
+  
+  // Drizzle: the grain gate, for the plugin's CV output.
+  if (gate_output) {
+    for (size_t i = 0; i < size; ++i) {
+      gate_output[i] = triggers[i].gate;
     }
   }
 }

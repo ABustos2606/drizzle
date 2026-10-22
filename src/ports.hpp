@@ -103,6 +103,19 @@ enum class SynthPort : uint32_t {
 inline constexpr uint32_t kPortCount = static_cast<uint32_t>(Port::count);
 inline constexpr uint32_t kSynthPortCount = static_cast<uint32_t>(SynthPort::count);
 
+// Each Drizzle Synth port's Drizzle port: the same control or signal, so both
+// plugins share the control code. Wavetable and Osc/grains are the knobs
+// Drizzle calls Feedback and Dry/wet (Beads' synth mode reuses them).
+inline constexpr Port kSynthToPort[kSynthPortCount] = {
+    Port::out_l, Port::out_r, Port::time, Port::size, Port::shape, Port::pitch, Port::density,
+    Port::time_mod, Port::size_mod, Port::shape_mod, Port::pitch_mod,
+    Port::time_uses_cv, Port::size_uses_cv, Port::shape_uses_cv, Port::pitch_uses_cv,
+    Port::feedback, Port::dry_wet, Port::reverb, Port::freeze, Port::seed, Port::seed_lock, Port::quality,
+    Port::assign_to, Port::gate_mode, Port::output,
+    Port::time_cv, Port::size_cv, Port::shape_cv, Port::pitch_cv, Port::density_cv, Port::assign_cv,
+    Port::freeze_gate, Port::seed_gate, Port::grain_out, Port::seed_uses_gate, Port::latency,
+};
+
 // Ports that carry one value per frame (audio and CV), not one per run().
 inline constexpr bool is_signal(uint32_t index)
 {

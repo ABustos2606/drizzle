@@ -66,7 +66,10 @@ class Synth {
       const Parameters& parameters,
       const Processor::MixParameters& mix_parameters,
       FloatFrame* out,
-      size_t size);
+      size_t size,
+      // Drizzle: when not NULL, receives the grain gate of each frame (see
+      // Processor::Process).
+      bool* gate_output = NULL);
   
  private:
   TriggerGenerator trigger_generator_;

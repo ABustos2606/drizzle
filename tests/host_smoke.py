@@ -183,9 +183,10 @@ def main():
         time.sleep(0.5)
         require(synth.poll() is None, "jalv failed during Drizzle Synth activation")
         probe.connect("drizzle_synth_jalv:out_l", captures[0])
-        require(listen(0.5) == 0.0, "jalv: Drizzle Synth is silent in this release")
+        probe.connect("drizzle_synth_jalv:out_r", captures[1])
+        require(listen(1.5) > 0.05, "jalv: Drizzle Synth plays with no input")
         stop(synth)
-        print("PASS jalv: Drizzle Synth loads", flush=True)
+        print("PASS jalv: Drizzle Synth loads and plays", flush=True)
 
         for threads in (1, 4):
             path = Path(f"/tmp/{server_name}-{threads}.sock")
@@ -225,7 +226,8 @@ def main():
             print(f"PASS Ingen: two Drizzles and a Drizzle Synth, a tone through both, {threads} threads", flush=True)
 
             settings = {"quality": 1, "time": 0.25, "density": 0.9, "freeze": 1, "seed_lock": 0,
-                        "seed_uses_gate": 1, "output": -6, "enabled": 0}
+                        "seed_uses_gate": 1, "output": -6, "enabled": 0, "mono": 1, "auto_gain": 0, "gain": 12,
+                        "assign_to": 2, "gate_mode": 1}
             for symbol, value in settings.items():
                 protocol.set("drizzle", symbol, value)
             save_path = logdir / f"{server_name}-{threads}.ingen"

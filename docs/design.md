@@ -2,7 +2,7 @@
 
 Drizzle is a granular processor and delay with a built-in reverb, for Peepo, a pedal built on a Raspberry Pi 5 running the Ingen modular host. It is an LV2 plugin made from the open-source code of Beads, a eurorack module by Emilie Gillet and the successor of Clouds. It must also work as a normal LV2 plugin in Carla or Ardour.
 
-**Written:** 20 October 2026, from Peepo's `docs/38-eurorack-ports-roadmap.md` and a reading of Beads' source at `pichenettes/eurorack` commit `f4cfa7697095a28d292bff758beb51deb49b5a86` (12 October 2026, the first public commit of Beads' code). **Status, 21 October 2026:** milestone 0 done; milestone 1 done offline, its Pi check still to do. Decisions made while building them are in **Decisions** below, dated 21 October.
+**Written:** 20 October 2026, from Peepo's `docs/38-eurorack-ports-roadmap.md` and a reading of Beads' source at `pichenettes/eurorack` commit `f4cfa7697095a28d292bff758beb51deb49b5a86` (12 October 2026, the first public commit of Beads' code). **Status, 21 October 2026:** milestone 0 done; milestones 1 and 2 done offline, their Pi check still to do. Decisions made while building them are in **Decisions** below, dated 21 October.
 
 ## Why Beads
 
@@ -53,7 +53,7 @@ Two plugins, one bundle, one binary:
 | Plugin | URI | What it is |
 | --- | --- | --- |
 | Drizzle | `https://github.com/ABustos2606/drizzle#drizzle` | The granular processor and delay. Stereo in, stereo out |
-| Drizzle Synth | `https://github.com/ABustos2606/drizzle#synth` | Beads' synth mode as a sound source. No audio input. Loads and is silent until milestone 2 |
+| Drizzle Synth | `https://github.com/ABustos2606/drizzle#synth` | Beads' synth mode as a sound source. No audio input |
 
 A plugin can't tell whether its input is cabled, so Beads' automatic switch to synth mode becomes a second plugin rather than a guess (decided 20 October 2026).
 
@@ -76,14 +76,16 @@ Symbols were fixed in milestone 0 (`src/ports.hpp`, `drizzle.lv2/*.ttl`) and nev
 | Seed lock | switch, **on** | The hardware's Seed + Freeze combo. On by default because the hardware starts locked: free-running grains |
 | Seed uses gate | switch, off | Stands in for "a cable is in the Seed jack". Locked and on: the Seed gate clocks the grains. Locked and off: they run free |
 | Quality | Dirty tape, Clean tape, Vintage digital, Digital | `Processor::Configure` switches it while running |
-| Mono | switch | The hardware's monophonic mode |
-| Auto gain, Input gain | switch, on; 0 to 32 dB | The hardware's gain setting (0 = auto, else 1 to 40 times). Milestone 2; until then the input is clipped at full scale with no gain |
+| Mono | switch, off | The hardware's "one input unplugged": In L is used for both sides and the buffer is mono, twice as long. In R is ignored. Changing it fades and clears like Quality |
+| Auto gain, Input gain | switch, on; 0 to 32 dB | The hardware's gain setting (0 = auto, else 1 to 40 times). Auto learns the input level over the first few seconds of sound (towards a peak of 0.9) and then follows it slowly; manual gain clips, softly in the tape qualities |
+| CV assign to | Feedback, Dry/wet, Reverb, All | Where the Assign CV goes. All uses the hardware's default amounts (Feedback full, Dry/wet none, Reverb half) |
+| Gate out | Trigger, Gate | What Grain out sends: a 10 ms trigger on each grain, or the grain's gate |
 | Output | dB | Peepo's output level control (`"output"` in the overlay) |
 | On | switch, on | `lv2:enabled`: off passes the input through while the processor's tails ring out (see Bypass) |
 
-CV inputs: Time, Size, Shape, Pitch (V/oct, Poly's scale: 1.0 = 5 V, so 0.2 per octave), Density, Assign (with a destination control: Feedback, Dry/wet, Reverb or all), Freeze gate, Seed gate. They span the hardware's +-5 V (`settings.cc` calibration): Time, Size and Shape reach +-1.6 at +-5 V, Density +-1, Pitch +-60 semitones. Gates are high from 0.4. CV output: the grain trigger or gate (the hardware's gate output mode becomes a choice control). Drizzle also reports its latency on a `Latency` output.
+CV inputs: Time, Size, Shape, Pitch (V/oct, Poly's scale: 1.0 = 5 V, so 0.2 per octave), Density, Assign (with a destination control: Feedback, Dry/wet, Reverb or all), Freeze gate, Seed gate. They span the hardware's +-5 V (`settings.cc` calibration): Time, Size and Shape reach +-1.6 at +-5 V, Density +-1, Pitch +-60 semitones. Gates are high from 0.4. CV output: **Grain out**, the grain trigger or gate, 0 or 1, lined up with the audio. The hardware's gate output mode puts it on the right audio output instead; Drizzle keeps the audio in stereo and adds the CV output, with Gate out choosing its form. Drizzle also reports its latency on a `Latency` output.
 
-Drizzle Synth has no audio input, Mono, gain or On. In synth mode the hardware's Feedback knob picks the wavetable bank, Dry/wet balances the oscillator against the grains, and Freeze still holds the voice (`dsp/synth.cc`), so Drizzle Synth names them **Wavetable** (`wavetable`) and **Osc/grains** (`osc_grains`) and keeps **Freeze** (corrected 21 October 2026; the draft dropped all three).
+Drizzle Synth has no audio input, Mono, gain or On. It runs at 48 kHz in every quality, as the hardware's synth mode does; Quality sets its wavetables' bit depth. In synth mode the hardware's Feedback knob picks the wavetable bank, Dry/wet balances the oscillator against the grains, and Freeze still holds the voice (`dsp/synth.cc`), so Drizzle Synth names them **Wavetable** (`wavetable`) and **Osc/grains** (`osc_grains`) and keeps **Freeze** (corrected 21 October 2026; the draft dropped all three).
 
 ## Sample rate
 
@@ -117,12 +119,19 @@ Made while building milestones 0 and 1, 21 October 2026 (the user asked for both
 - **Drizzle Synth's ports** keep Freeze and rename Feedback and Dry/wet to Wavetable and Osc/grains.
 - **Seed lock** moves from milestone 2 to milestone 1: without it Seed can't run free, so milestone 1's Seed would be incomplete.
 
+Made while building milestone 2, 21 October 2026 (built without stopping for questions, as milestones 0 and 1; each can be revisited until a patch is saved):
+
+- **Mono** is the hardware's "one input unplugged" (mono buffer, In L copied across), not the monophonic grain mode. In L is the input used.
+- **Assign "All"** uses the hardware's default hidden amounts (255, 0 and 128 of 256); no ports for them.
+- **Grain out** is a CV port that always carries the grain gate; the audio stays stereo. Gate out picks a 10 ms trigger (default, **tune**) or the gate. This needed a small change to the vendored processor and synth, which now hand their gate out.
+- **Input gain** in dB is used as a linear factor (0 dB = 1, 32 dB = 40 times), not through the hardware's setting curve; the range is the same.
+
 ## Open questions
 
 | Question | Why it matters | When to settle |
 | --- | --- | --- |
-| Mono | The hardware's Mono is "one input unplugged" (mono buffer, input copied across), not the monophonic grain mode; the switch should do the former | Milestone 2 |
-| Assign "All" | The hardware's amounts for All are hidden knob settings (255, 0 and 128 of 256 by default); Drizzle has no ports for them | Milestone 2 |
+| Assign "All" amounts | Fixed at the hardware's defaults (decided above); ports for them only if listening asks | Milestone 3 |
+| Trigger length | 10 ms on Grain out; check against Peepo's CV modules | Milestone 3 |
 | Saving the buffer | Lost on reload, like Mist | After milestone 3 |
 | CPU on the Pi | Grain count at high Density, the reverb | Milestone 1, measured |
 
@@ -130,5 +139,5 @@ Made while building milestones 0 and 1, 21 October 2026 (the user asked for both
 
 - [x] Milestone 0: vendored code, Makefile, LV2 glue and `.ttl` with the full port list. Drizzle passes audio through the processor at default settings. Loads in jalv and in Ingen under WSL ([record](milestone-0-validation.md)).
 - [ ] Milestone 1: every control and CV input, the four qualities, Freeze and Seed. Renders match `beads_test` at the same settings. Pi CPU and xrun check. Done offline; the Pi check is to do ([record](milestone-1-validation.md)).
-- [ ] Milestone 2: Drizzle Synth, Mono, Gain, the gate output, the Assign input.
+- [ ] Milestone 2: Drizzle Synth, Mono, Gain, the gate output, the Assign input. Done offline; the Pi check is to do ([record](milestone-2-validation.md)).
 - [ ] Milestone 3: Peepo integration: overlay entry, pinned build, listening with guitar on the Pi. Tag `v0.1.0`.

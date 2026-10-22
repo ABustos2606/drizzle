@@ -40,7 +40,8 @@ Fit measure(uint32_t rate, uint32_t processor_rate, double frequency)
     for (uint32_t i = 0; i < frames; ++i) {
         const float in[2] = {static_cast<float>(amplitude * std::sin(w * i)), 0.0f};
         float y[2];
-        bridge.frame(in, false, false, y, [](drizzle::BlockBuffer& b) {
+        bool gate;
+        bridge.frame(in, false, false, y, &gate, [](drizzle::BlockBuffer& b) {
             for (uint32_t k = 0; k < b.size; ++k) { b.out[k] = b.in[k]; }
         });
         out[i] = y[0];

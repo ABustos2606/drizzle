@@ -21,7 +21,7 @@ endif
 URIS := https://github.com/ABustos2606/drizzle\#drizzle https://github.com/ABustos2606/drizzle\#synth
 BUNDLE := $(BUILD_DIR)/drizzle.lv2
 VENDOR := third_party/eurorack
-SOURCES := src/lv2_entry.cpp src/drizzle.cpp src/drizzle_synth.cpp src/controls.cpp
+SOURCES := src/lv2_entry.cpp src/drizzle.cpp src/drizzle_synth.cpp src/controls.cpp src/gain.cpp
 VENDOR_SOURCES := $(addprefix $(VENDOR)/,beads/dsp/delay_clock.cc beads/dsp/delay_controller.cc \
 	beads/dsp/mu_law.cc beads/dsp/processor.cc beads/dsp/synth.cc beads/dsp/trigger_generator.cc \
 	beads/resources.cc stmlib/dsp/units.cc stmlib/utils/random.cc)
@@ -42,7 +42,7 @@ COMPILE_FLAGS = $(BASE_FLAGS) $(LV2_CFLAGS) -isystem $(VENDOR) -Wall -Wextra
 # Vendored code is kept as upstream wrote it; its warnings are not ours.
 VENDOR_FLAGS = $(BASE_FLAGS) -I$(VENDOR) -w
 TEST_LIBS = -ldl -pthread
-TESTS := test_scaffold test_match test_controls test_resampler
+TESTS := test_scaffold test_match test_controls test_gain test_resampler
 
 .PHONY: all install test test-timing test-hosts render lint clean
 all: $(BUNDLE)/drizzle.so $(TTL_TARGETS)
@@ -74,14 +74,19 @@ $(BUILD_DIR)/test_resampler: tests/test_resampler.cpp src/rate_bridge.hpp src/re
 
 # Drive the vendored Processor and the control code directly, beside the
 # plugin, so they link them too.
-$(BUILD_DIR)/test_match: tests/test_match.cpp tests/host.cpp tests/host.hpp $(BUILD_DIR)/obj/controls.o $(VENDOR_OBJECTS)
+$(BUILD_DIR)/test_match: tests/test_match.cpp tests/host.cpp tests/host.hpp $(BUILD_DIR)/obj/controls.o \
+		$(BUILD_DIR)/obj/gain.o $(VENDOR_OBJECTS)
 	@mkdir -p "$(@D)"
-	$(CXX) $(COMPILE_FLAGS) tests/test_match.cpp tests/host.cpp $(BUILD_DIR)/obj/controls.o $(VENDOR_OBJECTS) \
-		$(LDFLAGS) $(TEST_LIBS) -o $@
+	$(CXX) $(COMPILE_FLAGS) tests/test_match.cpp tests/host.cpp $(BUILD_DIR)/obj/controls.o $(BUILD_DIR)/obj/gain.o \
+		$(VENDOR_OBJECTS) $(LDFLAGS) $(TEST_LIBS) -o $@
 
 $(BUILD_DIR)/test_controls: tests/test_controls.cpp $(BUILD_DIR)/obj/controls.o $(VENDOR_OBJECTS)
 	@mkdir -p "$(@D)"
 	$(CXX) $(COMPILE_FLAGS) tests/test_controls.cpp $(BUILD_DIR)/obj/controls.o $(VENDOR_OBJECTS) $(LDFLAGS) -o $@
+
+$(BUILD_DIR)/test_gain: tests/test_gain.cpp $(BUILD_DIR)/obj/gain.o
+	@mkdir -p "$(@D)"
+	$(CXX) $(COMPILE_FLAGS) tests/test_gain.cpp $(BUILD_DIR)/obj/gain.o $(LDFLAGS) -o $@
 
 $(BUILD_DIR)/render: tools/render.cpp tests/host.cpp tests/host.hpp src/ports.hpp
 	@mkdir -p "$(@D)"
@@ -94,8 +99,10 @@ test: all $(addprefix $(BUILD_DIR)/,$(TESTS)) $(BUILD_DIR)/render
 	$(BUILD_DIR)/test_scaffold $(BUNDLE)/drizzle.so
 	$(BUILD_DIR)/test_match $(BUNDLE)/drizzle.so
 	$(BUILD_DIR)/test_controls
+	$(BUILD_DIR)/test_gain
 	$(BUILD_DIR)/test_resampler
 	$(BUILD_DIR)/render $(BUNDLE)/drizzle.so $(BUILD_DIR)/render-check.wav --seconds 1 dry_wet=0.8
+	$(BUILD_DIR)/render $(BUNDLE)/drizzle.so $(BUILD_DIR)/render-synth-check.wav --synth --seconds 1 wavetable=0.4
 
 # rt_timing: 10 simulated minutes of random controls.
 test-timing: all $(BUILD_DIR)/test_scaffold
@@ -119,6 +126,7 @@ lint:
 	else echo 'SKIP lv2lint: not installed (install the bundle with make install first)'; fi
 
 clean:
-	$(RM) -r $(BUILD_DIR)/obj $(BUNDLE) $(addprefix $(BUILD_DIR)/,$(TESTS)) $(BUILD_DIR)/render $(BUILD_DIR)/render-check.wav
+	$(RM) -r $(BUILD_DIR)/obj $(BUNDLE) $(addprefix $(BUILD_DIR)/,$(TESTS)) $(BUILD_DIR)/render $(BUILD_DIR)/render-check.wav \
+		$(BUILD_DIR)/render-synth-check.wav
 
 -include $(OBJECTS:.o=.d) $(VENDOR_OBJECTS:.o=.d)

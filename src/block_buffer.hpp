@@ -25,6 +25,8 @@ struct BlockBuffer {
     // and EVENT_SEED, read with every sample on the hardware).
     bool freeze[kMaxSize];
     bool seed[kMaxSize];
+    // The processor's grain gate at each output frame.
+    bool gate[kMaxSize];
     uint32_t size = kMaxSize;
     uint32_t position = 0;
 
@@ -35,6 +37,7 @@ struct BlockBuffer {
         std::fill(out, out + kMaxSize, zero);
         std::fill(freeze, freeze + kMaxSize, false);
         std::fill(seed, seed + kMaxSize, false);
+        std::fill(gate, gate + kMaxSize, false);
         position = 0;
     }
 };

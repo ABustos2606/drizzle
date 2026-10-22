@@ -163,7 +163,11 @@ class Processor {
       const MixParameters& mix_parameters,
       const FloatFrame* in,
       FloatFrame* out,
-      size_t size);
+      size_t size,
+      // Drizzle: when not NULL, receives the grain gate of each frame (what
+      // the hardware's gate output mode sends to the right output), so the
+      // plugin can put it on a CV output and keep the audio in stereo.
+      bool* gate_output = NULL);
   
  private:
   GranularProcessor<

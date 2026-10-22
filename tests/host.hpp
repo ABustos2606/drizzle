@@ -69,6 +69,9 @@ public:
     bool random_slices = true;
     bool measure = false;
     std::vector<double> run_times; // microseconds per period, when measuring
+    // Grain out, frame by frame, from every render() while record_grain is set.
+    bool record_grain = false;
+    std::vector<float> grain_out;
 
 private:
     bool is_signal(uint32_t p) const { return synth ? drizzle::is_synth_signal(p) : drizzle::is_signal(p); }

@@ -14,10 +14,10 @@
 namespace drizzle {
 namespace {
 
-// A Quality change fades out over 5 ms, clears the 768 KB delay buffer 1 KB
-// per host frame (16 ms at 48 kHz, a few microseconds per period), waits for
-// the new path to fill, then fades in over 5 ms: about 40 ms in all. The
-// hardware stops its codec and mutes for 0.25 s.
+// A Quality or Mono change fades out over 5 ms, clears the 768 KB delay
+// buffer 1 KB per host frame (16 ms at 48 kHz, a few microseconds per
+// period), waits for the new path to fill, then fades in over 5 ms: about
+// 40 ms in all. The hardware stops its codec and mutes for 0.25 s.
 constexpr double kSwitchFadeSeconds = 0.005;
 constexpr uint32_t kClearBytesPerFrame = 1024;
 constexpr double kPrimeSeconds = 0.01;
@@ -26,8 +26,6 @@ constexpr uint32_t kDelayBufferSize = kDelayBuffer1Size + kDelayBuffer2Size;
 constexpr uint32_t kFreezeTailBytes = 256 * sizeof(beads::FloatFrame);
 // The bypass crossfade.
 constexpr double kBypassFadeSeconds = 0.01;
-// Peepo's gates are 0 or 1; Chamber and Poly's ports use the same threshold.
-constexpr float kGateThreshold = 0.4f;
 
 LV2_Handle instantiate(const LV2_Descriptor*, double rate, const char*, const LV2_Feature* const*)
 {
@@ -41,6 +39,17 @@ void cleanup(LV2_Handle h) { delete static_cast<Drizzle*>(h); }
 const void* extension_data(const char*) { return nullptr; }
 
 float db_to_gain(float db) { return std::pow(10.0f, db / 20.0f); }
+
+// beads.cc: ConfigureAndStartCodec. Soft clipping on the input is on in dirty
+// tape, depends on the gain in clean tape, and is off in the digital ones.
+GainControl::SoftClippingMode soft_clipping(beads::Processor::Media media)
+{
+    switch (media) {
+    case beads::Processor::MEDIA_DIRTY_TAPE: return GainControl::soft_clipping_on;
+    case beads::Processor::MEDIA_CLEAN_TAPE: return GainControl::soft_clipping_dynamic;
+    default: return GainControl::soft_clipping_off;
+    }
+}
 
 } // namespace
 
@@ -70,6 +79,7 @@ Drizzle* Drizzle::create(double rate) noexcept
             ok = false;
         }
     }
+    ok = ok && drizzle->grain_output_.configure(drizzle->latency_, static_cast<uint32_t>(kTriggerSeconds * rate));
     if (!ok) {
         std::free(memory);
         delete drizzle;
@@ -113,7 +123,8 @@ void Drizzle::activate() noexcept
     processor_ = new (processor_) beads::Processor;
     uint8_t* buffers[3] = {delay_buffer_1_, delay_buffer_1_ + kDelayBuffer1Size / 2, delay_buffer_2_};
     processor_->Init(buffers, reverb_);
-    configure(requested_media(), true);
+    configure(requested_media(), requested_mono(), true, true);
+    auto_gain_ = control(Port::auto_gain, 1, 0, 1) >= 0.5f;
     controls_.reset();
     random_state_ = kRandomSeed;
     switch_ = Switch::running;
@@ -146,11 +157,19 @@ beads::Processor::Media Drizzle::requested_media() const noexcept
     return static_cast<beads::Processor::Media>(std::lround(control(Port::quality, 3, 0, 3)));
 }
 
-void Drizzle::configure(beads::Processor::Media media, bool clear) noexcept
+// The hardware's Mono is "one audio input unplugged" (NormalizationDetector::
+// mono): a mono buffer, twice as long, and the patched input copied across.
+// Here the switch says so, and In L is the one used.
+bool Drizzle::requested_mono() const noexcept
 {
-    // The Mono switch is milestone 2.
-    processor_->Configure(media, false, clear);
+    return control(Port::mono, 0, 0, 1) >= 0.5f;
+}
+
+void Drizzle::configure(beads::Processor::Media media, bool mono, bool clear, bool reset_gain) noexcept
+{
+    processor_->Configure(media, mono, clear);
     media_ = media;
+    mono_ = mono;
     const auto rate = static_cast<uint32_t>(std::lround(processor_->sample_rate()));
     for (auto& bridge : bridges_) {
         if (bridge.rate() == rate) { bridge_ = &bridge; }
@@ -159,9 +178,11 @@ void Drizzle::configure(beads::Processor::Media media, bool clear) noexcept
     pad_length_ = latency_ - bridge_->latency();
     std::fill(pad_.begin(), pad_.end(), beads::FloatFrame{0.0f, 0.0f});
     pad_position_ = 0;
-    // ConfigureAndStartCodec: event_delay.Init().
-    seed_delay_.Init();
-    previous_seed_ = stmlib::GATE_FLAG_LOW;
+    // ConfigureAndStartCodec: the gain control follows the processor's rate
+    // and quality, and learns again after a Mono change; event_delay.Init().
+    gain_.init(processor_->sample_rate(), soft_clipping(media), reset_gain);
+    seed_gate_.reset();
+    grain_output_.reset(latency_ - std::min(latency_, bridge_->gate_latency()));
 }
 
 // What DelayLine::Reset(true) writes, a slice at a time: every byte of the
@@ -197,8 +218,10 @@ void Drizzle::run(uint32_t frames) noexcept
     const float enabled_target = control(Port::enabled, 1, 0, 1) >= 0.5f ? 1.0f : 0.0f;
     const float enabled_step = static_cast<float>(1.0 / (kBypassFadeSeconds * rate_));
     const auto requested = requested_media();
-    if (switch_ == Switch::running && requested != media_) {
+    const bool mono = requested_mono();
+    if (switch_ == Switch::running && (requested != media_ || mono != mono_)) {
         next_media_ = requested;
+        next_mono_ = mono;
         clear_offset_ = 0;
         // Before the first run nothing has been heard: no fade out.
         switch_ = first_ ? Switch::clearing : Switch::fading_out;
@@ -211,6 +234,7 @@ void Drizzle::run(uint32_t frames) noexcept
     }
     float* out_l = ports_[static_cast<uint32_t>(Port::out_l)];
     float* out_r = ports_[static_cast<uint32_t>(Port::out_r)];
+    float* grain_out = ports_[static_cast<uint32_t>(Port::grain_out)];
 
     for (uint32_t i = 0; i < frames; ++i) {
         output_gain_ += smoothing_ * (output_target - output_gain_);
@@ -229,7 +253,7 @@ void Drizzle::run(uint32_t frames) noexcept
         case Switch::clearing:
             clear_slice();
             if (clear_offset_ == kDelayBufferSize) {
-                configure(next_media_, false);
+                configure(next_media_, next_mono_, false, next_mono_ != mono_);
                 switch_ = Switch::fading_in;
                 // The new path's first output arrives one latency later, and
                 // dirty tape's wow and flutter delay (up to 128 frames at
@@ -253,11 +277,12 @@ void Drizzle::run(uint32_t frames) noexcept
         }
 
         beads::FloatFrame wet{0.0f, 0.0f};
+        bool grain = false;
         if (switch_ != Switch::clearing) {
             const float processor_in[2] = {in[0] * enabled_gain_, in[1] * enabled_gain_};
             float processor_out[2];
             // A block completed in host frame i uses that frame's CVs.
-            bridge_->frame(processor_in, gate(Port::freeze_gate, i), gate(Port::seed_gate, i), processor_out,
+            bridge_->frame(processor_in, gate(Port::freeze_gate, i), gate(Port::seed_gate, i), processor_out, &grain,
                            [this, i](BlockBuffer& block) { process_block(block, i); });
             wet = {processor_out[0], processor_out[1]};
             if (pad_length_) {
@@ -268,10 +293,8 @@ void Drizzle::run(uint32_t frames) noexcept
         const float dry = 1.0f - enabled_gain_;
         if (out_l) { out_l[i] = (wet.l * switch_gain_ + in[0] * dry) * output_gain_; }
         if (out_r) { out_r[i] = (wet.r * switch_gain_ + in[1] * dry) * output_gain_; }
-    }
-    // The grain trigger or gate output is milestone 2.
-    if (float* grain_out = ports_[static_cast<uint32_t>(Port::grain_out)]) {
-        std::fill(grain_out, grain_out + frames, 0.0f);
+        const float grain_cv = grain_output_.frame(grain, block_controls_.grain_trigger);
+        if (grain_out) { grain_out[i] = grain_cv; }
     }
     if (float* latency = ports_[static_cast<uint32_t>(Port::latency)]) {
         *latency = static_cast<float>(latency_);
@@ -288,25 +311,25 @@ void Drizzle::process_block(BlockBuffer& block, uint32_t frame) noexcept
     bool freeze[BlockBuffer::kMaxSize];
     for (uint32_t i = 0; i < size; ++i) { freeze[i] = c.freeze_button || block.freeze[i]; }
 
-    // The Seed gate, delayed by 10 blocks (2.5 ms), is only given to the
-    // processor when its jack is patched; here, when Seed uses gate is on.
     stmlib::GateFlags seed[BlockBuffer::kMaxSize];
-    const stmlib::GateFlags* seed_input = nullptr;
-    if (c.seed_uses_gate) {
-        for (uint32_t i = 0; i < size; ++i) {
-            seed_delay_.Write(block.seed[i] ? 1 : 0);
-            const bool has_seed = seed_delay_.Read(static_cast<size_t>(size) * 10) != 0;
-            previous_seed_ = seed[i] = stmlib::ExtractGateFlags(previous_seed_, has_seed);
-        }
-        seed_input = seed;
-    } else {
-        previous_seed_ = stmlib::GATE_FLAG_LOW;
-    }
+    const stmlib::GateFlags* seed_input = seed_gate_.process(c.seed_uses_gate, block.seed, size, seed);
+
+    // The input through the gain control (gain_control.cc), as the hardware
+    // converts the codec's samples. Turning Auto gain back on learns the
+    // gain again, as the hardware's long press on its quality button does.
+    const bool auto_gain = control(Port::auto_gain, 1, 0, 1) >= 0.5f;
+    if (auto_gain && !auto_gain_) { gain_.restart(); }
+    auto_gain_ = auto_gain;
+    // Input gain is 0 to 32 dB, the hardware's manual range of 1 to 40 times.
+    const float manual_gain = std::clamp(db_to_gain(control(Port::gain, 0, 0, 32)), 1.0f, 40.0f);
+    beads::FloatFrame in[BlockBuffer::kMaxSize];
+    gain_.process(true, auto_gain, manual_gain, mono_, block.in, in, size);
 
     // stmlib::Random is one state per thread (third_party/eurorack/README.md);
     // each instance keeps its own sequence.
     stmlib::Random::Seed(random_state_);
-    processor_->Process(c.seed_button, seed_input, freeze, c.density, c.parameters, c.mix, block.in, block.out, size);
+    processor_->Process(c.seed_button, seed_input, freeze, c.density, c.parameters, c.mix, in, block.out, size,
+                        block.gate);
     random_state_ = stmlib::Random::state();
 
     // beads.cc: the output is clamped before it goes to the codec.
