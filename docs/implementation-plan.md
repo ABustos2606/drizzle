@@ -206,7 +206,7 @@ Each has an end check. "Done" means the offline tests pass on x86-64 and arm64, 
 - **Milestone 0, scaffolding.** `tools/vendor.sh`, vendored files, Makefile, both descriptors, both `.ttl` files with the full port list, `ports.hpp`, `ttl_check`. Drizzle runs the processor at default settings. **Done when** `make`, `make install DESTDIR=...` and `lv2lint` are clean and both plugins load in jalv and in Ingen under WSL. Tag `v0.0.1`. **Done 21 October 2026.**
 - **Milestone 1, the processor.** Every control and CV input of Drizzle, the qualities, Freeze, Seed and Seed lock, `match_beads`, `slicing`, `rt_timing`. Pi CPU and xrun check. Tag `v0.1.0`; Peepo adds its overlay entry and pinned build. **Done offline 21 October 2026; the Pi check is to do.**
 - **Milestone 2, the rest.** Drizzle Synth, Mono, Gain, the gate output, the Assign input. Tag `v0.2.0`. **Done offline 21 October 2026; the Pi check (with milestone 1's) is to do.**
-- **Milestone 3, Peepo and listening.** Section 9 in Peepo, pinned at `v0.2.0` (`8047478`). Guitar on the Pi; default values tuned (quality, density, gain, trigger length). `v0.2.x` tags of tuning. **Peepo side done on the PC 21 October 2026; the Pi checks and listening are to do.** Record: [milestone 3](milestone-3-validation.md).
+- **Milestone 3, Peepo and listening.** Section 9 in Peepo, pinned at `v0.2.0` (`8047478`). Guitar on the Pi; default values tuned (quality, density, gain, trigger length). `v0.2.x` tags of tuning. **Peepo side done 21 October 2026; installed on the Pi and the guitar test passed 22 October, no default changed; the Pi CPU and xrun measurements are to do.** Record: [milestone 3](milestone-3-validation.md).
 
 ## 9. Peepo-side work
 

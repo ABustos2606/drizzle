@@ -2,7 +2,7 @@
 
 Drizzle is a granular processor and delay with a built-in reverb, for Peepo, a pedal built on a Raspberry Pi 5 running the Ingen modular host. It is an LV2 plugin made from the open-source code of Beads, a eurorack module by Emilie Gillet and the successor of Clouds. It must also work as a normal LV2 plugin in Carla or Ardour.
 
-**Written:** 20 October 2026, from Peepo's `docs/38-eurorack-ports-roadmap.md` and a reading of Beads' source at `pichenettes/eurorack` commit `f4cfa7697095a28d292bff758beb51deb49b5a86` (12 October 2026, the first public commit of Beads' code). **Status, 21 October 2026:** milestone 0 done; milestones 1 and 2 done offline, their Pi check still to do; milestone 3 under way: Peepo builds `v0.2.0` and offers both plugins, the Pi checks and listening are to do. Decisions made while building them are in **Decisions** below, dated 21 October.
+**Written:** 20 October 2026, from Peepo's `docs/38-eurorack-ports-roadmap.md` and a reading of Beads' source at `pichenettes/eurorack` commit `f4cfa7697095a28d292bff758beb51deb49b5a86` (12 October 2026, the first public commit of Beads' code). **Status, 22 October 2026:** milestone 0 done; milestones 1 and 2 done offline, their Pi check still to do; milestone 3: Peepo builds `v0.2.0` and offers both plugins, installed on the Pi; the user's guitar test passed (22 October); the Pi CPU and xrun measurements are to do. Decisions made while building them are in **Decisions** below, dated 21 October.
 
 ## Why Beads
 
@@ -140,4 +140,4 @@ Made while building milestone 2, 21 October 2026 (built without stopping for que
 - [x] Milestone 0: vendored code, Makefile, LV2 glue and `.ttl` with the full port list. Drizzle passes audio through the processor at default settings. Loads in jalv and in Ingen under WSL ([record](milestone-0-validation.md)).
 - [ ] Milestone 1: every control and CV input, the four qualities, Freeze and Seed. Renders match `beads_test` at the same settings. Pi CPU and xrun check. Done offline; the Pi check is to do ([record](milestone-1-validation.md)).
 - [ ] Milestone 2: Drizzle Synth, Mono, Gain, the gate output, the Assign input. Done offline; the Pi check is to do ([record](milestone-2-validation.md)).
-- [ ] Milestone 3: Peepo integration: overlay entry, pinned build, listening with guitar on the Pi. Peepo pins `v0.2.0` (`v0.1.0` and `v0.2.0` were already tagged at milestones 1 and 2); tuning gives `v0.2.x`. Integration done on the PC; the Pi checks and listening are to do ([record](milestone-3-validation.md)).
+- [ ] Milestone 3: Peepo integration: overlay entry, pinned build, listening with guitar on the Pi. Peepo pins `v0.2.0` (`v0.1.0` and `v0.2.0` were already tagged at milestones 1 and 2); tuning gives `v0.2.x`. Integration and the guitar test done; the Pi CPU and xrun measurements are to do ([record](milestone-3-validation.md)).

@@ -1,7 +1,7 @@
 <!-- SPDX-License-Identifier: MIT -->
 # Milestone 3 validation
 
-**In progress.** Recorded 21 October 2026. Done: Peepo's side of plan section 9 on the PC, pinned at `v0.2.0`, and checked with Peepo's catalogue exporter and tests under WSL. To do: everything on the Pi (installation, CPU and xruns, the user's guitar test) and the tuning it leads to, in `v0.2.x` tags.
+**Guitar test passed; the Pi measurements are to do.** Recorded 21 and 22 October 2026. Done: Peepo's side of plan section 9, pinned at `v0.2.0` and checked under WSL; Drizzle built, tested and installed on the Pi and offered in its catalogue; the user's guitar test (passed, no default changed). To do: CPU and xruns on the Pi, on a sound power supply.
 
 ## Drizzle, release `v0.2.0`
 
@@ -56,18 +56,24 @@ The pages, as Peepo shows them:
 
 Not done on the PC: `config/catalogue/wsl-debian.json` was not re-exported, for Chamber's reason (this WSL environment no longer matches it). Run `15-compat.sh` after a full `14-more-plugins.sh`.
 
-## On the Pi (to do)
+## On the Pi, 22 October 2026
 
-1. Peepo's build step for Drizzle at the pinned commit; `make test` there (natively on arm64).
-2. `make test-timing` there, then `tools/pi/measure-effect.py` alone and in a typical patch (input -> amp -> Drizzle -> output, plus a Mist and a Drizzle Synth) for 30 minutes with guitar or a looped DI: Density at maximum, each quality, Mono on for one run. JACK xruns, DSP load and RSS into Peepo's `docs/evidence/`. Chamber's record found the Pi's power supply causing xruns (under-voltage): measure on a sound supply, and compare against the same patch without Drizzle.
-3. Re-export the Pi's catalogue (`tools/pi/export-catalogue.sh`); `docs/33-module-list.md` regenerated with `tools/document-catalogue.py`.
-4. Listening with guitar. What to judge, each a **tune** in the spec:
-    - **Quality**'s default (Digital, the hardware's): does a tape quality suit a guitar better as the first sound?
-    - **Density**'s default 0.7, with Seed lock on: grains busy enough to hear at once, not a wash.
-    - **Auto gain** on guitar: it learns over the first seconds of sound and aims at a peak of 0.9. Too hot into the soft clipping, or right? Otherwise a manual Input gain as the default.
-    - **Dry/wet** 0.5, **Feedback** 0, **Reverb** 0: the first impression of a new Drizzle.
-    - **Gate out**'s 10 ms trigger into Peepo's envelopes and sequencers.
-    - **Assign "All"**'s fixed amounts: whether they need ports.
-    - Drizzle Synth: its defaults as a sound source.
+Drizzle `v0.2.0` (`8047478`) on the Pi 5 (`patchbox`, Debian 12), built as Peepo's build step does: cloned from GitHub into `/opt/peepo/src/more-plugins/drizzle`, `make -j3 OPT="-O2 -mcpu=cortex-a76"` (7 s, no warnings), installed into `/opt/peepo/lib/lv2`.
 
-Then `v0.2.1` with the new defaults (Turtle, the C++ fallbacks and the test host kept together by `ttl_check`), and Peepo's pin moved to it.
+| Check | Result |
+| --- | --- |
+| `make test` on the Pi | PASS, every test, natively on arm64; `match_beads` and `match_synth` bit for bit |
+| `ldd` | clean |
+| Catalogue | The Pi's overlay and inventory differed from Peepo's working tree only by Drizzle's lines; copied over and re-exported with `tools/pi/export-catalogue.sh`: 336 -> 338 modules, Drizzle (27 controls) and Drizzle Synth (24) added and offered, nothing else changed. Backups in `/opt/peepo/share/peepo/pre-drizzle-20261022/` |
+| Module list | The export copied to Peepo's `docs/evidence/catalogue-pi-20261022.json`; `docs/33-module-list.md` regenerated from it with `tools/document-catalogue.py` (now its default): 358 identities, 338 installed, Drizzle under Texture and Drizzle Synth under Sound source, both Ready |
+| Engine, routing and interface restarted (JACK kept running) | All active; 554 plugins loaded, no errors from Drizzle; the startup patch reloaded clean (`dirty=0`); `peepo_effect_live show`: PASS |
+| Power | `get_throttled` 0x50005 before the restart (under-voltage now and throttled), 0x50000 after: the power supply Chamber's record found is still in use |
+
+## Listening
+
+**The user's guitar test passed** (22 October 2026: "gorgeous"), with Mono on, Auto gain learning over the first seconds of playing, and starting points given for three sounds: a shimmer cloud (Density 0.82, Pitch +12, Time mod -0.3, Reverb 0.6), a frozen pad (Freeze on a ringing chord, Density 0.9) and a tape delay (Size 1.0, a tape quality, Feedback 0.5). No default was reported wrong, so none is changed: `v0.2.0` stays Peepo's pin.
+
+## To do
+
+1. `make test-timing` on the Pi, then `tools/pi/measure-effect.py` alone and in a typical patch (input -> amp -> Drizzle -> output, plus a Mist and a Drizzle Synth) for 30 minutes: Density at maximum, each quality, Mono on for one run. JACK xruns, DSP load and RSS into Peepo's `docs/evidence/`, on a sound power supply, against the same patch without Drizzle.
+2. Still open for later listening, each a **tune** in the spec: whether Mono should start on for a guitar (a mono source cabled to In L only records silence on the right); Density's default 0.7 (about two grains a second); Gate out's 10 ms trigger into Peepo's CV modules; Assign "All"'s fixed amounts; Drizzle Synth's defaults. Any change becomes `v0.2.1` (Turtle, C++ fallbacks and test host kept together by `ttl_check`) and Peepo's pin moves to it.

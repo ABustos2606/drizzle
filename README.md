@@ -3,7 +3,7 @@
 An LV2 granular processor and delay with a built-in reverb, written for Peepo
 and other LV2 hosts. MIT licensed, Copyright (c) 2026 Alejandro Bustos.
 
-**Status, 21 October 2026: milestones 0, 1 and 2 done offline; milestone 3 (Peepo integration) done on the PC, the Pi checks and listening to do.**
+**Status, 22 October 2026: milestones 0, 1 and 2 done offline; milestone 3: in Peepo and on the Pi, guitar test passed; the Pi CPU and xrun measurements to do.**
 Every control, CV input and output of both plugins works: the four qualities at
 the hardware's rates, Freeze and Seed, Mono, auto and manual input gain, the
 assignable CV and the grain trigger output, and Drizzle Synth. They still need
